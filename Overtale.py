@@ -232,14 +232,12 @@ class Objects:
 
     def clear(self, exceptions = []):
         menuOffset = [(0.5 - self.menuSize[0]/2) * self.screenSize[0] + 7, (0.65 - self.menuSize[1]/2) * self.screenSize[1] + 7]
-        heartPos = self.menu.coords(self.heart)
-        heartPos = [heartPos[0] + menuOffset[0], heartPos[1] + menuOffset[1]]
 
         ## Blacken Menu and make it fill the screen
-        self.menu_border.place_configure(width=self.screenSize[0], height=self.screenSize[1], x = 0, y = 0, anchor="nw")
         self.menu.place_configure(width=self.screenSize[0], height=self.screenSize[1], x = 0, y = 0, anchor="nw")
-        self.menu_border.configure(bg='black', highlightthickness=0)
+        self.menu_border.place_configure(width=self.screenSize[0], height=self.screenSize[1], x = 0, y = 0, anchor="nw")
         self.menu.configure(highlightthickness=0)
+        self.menu_border.configure(bg='black', highlightthickness=0)
 
         if "heart" in exceptions:
             ## Recenter heart
@@ -250,7 +248,6 @@ class Objects:
         ## Delete everything else
         if not "boss" in exceptions: 
             self.boss.destroy()
-            print("destroyed")
         else: 
             self.boss.lift()
         self.info_hp_bar.destroy()
@@ -274,18 +271,19 @@ obj = Objects()
 def Thread():
     def _thread():
         while True:
+            obj.debug.configure(text="Scene "+str(obj.scene))
             #### STARTUP
             if obj.scene == -1:
+                obj.clear()
+                time.sleep(2)
+                obj.__init__()
                 obj.selectedButton =-1
                 UpdateSelectedButton()
-                obj.clear()
-                
-                time.sleep(3)
 
                 obj.scene = 0
             
             #### DEATH SCENE
-            if obj.scene == -2:
+            elif obj.scene == -2:
                 obj.selectedButton =-1
                 UpdateSelectedButton()
 
@@ -370,15 +368,14 @@ def Thread():
                     time.sleep(0.02)
                 obj.pressed_space = False
 
-                obj.heart_menu.destroy()
+                obj.heart_menu.place_forget()
                 obj.menu_dialogue.destroy()
-                obj.menu.destroy()
-                obj.menu_border.destroy()
+                obj.menu.delete(gameover)
 
                 obj.scene = -1
             
             #### ENDINGS
-            if obj.scene == -3:
+            elif obj.scene == -3:
                 obj.selectedButton =-1
                 UpdateSelectedButton()
 
@@ -427,7 +424,7 @@ def Thread():
 
 
             #### NOT FIGHTMODE (Menu)
-            if obj.scene == 0:
+            elif obj.scene == 0:
                 thread = ts.Resize(obj.menu_border, subObject=obj.menu, w=0.67, h=0.3)
                 obj.menuSize = (0.67, 0.3)
 
@@ -439,9 +436,14 @@ def Thread():
                 obj.selectedButton =0
                 UpdateSelectedButton()
 
+                obj.display_text.configure(text="* BLOQUE DE RUTENIO")
+                obj.display_text.place(x=80, y=30, anchor="nw")
+
                 while obj.scene == 0: time.sleep(0.1)
 
                 obj.menu_dialogue.place_forget()
+                obj.display_text.place_forget()
+                obj.heart_menu.place_forget()
             
             #### FIGHTMODE
             elif obj.scene == 1:
@@ -455,14 +457,15 @@ def Thread():
                 obj.menu.move(obj.heart, -heartPos[0]+obj.screenSize[0]*obj.menuSize[0]/2 -3, -heartPos[1]+obj.screenSize[1]*obj.menuSize[1]/2 -3)
                 
                 #### Choose attack
-                rng = random.randint(0, 2)
-                if rng == obj.lastAttack: rng = (rng+1)%2
+                rng = random.randint(0, 3)
+                if rng == obj.lastAttack: rng = (random.randint(1, 3)+1)%3
                 obj.lastAttack = rng
                 if obj.trust_level <= -99: rng = -1
-                
+
                 if rng==0: obj.atk.atk_sparkrandom()
                 elif rng==1: obj.atk.atk_sparkgrid()
                 elif rng==2: obj.atk.atk_facebounce()
+                elif rng==3: obj.atk.atk_facebarage()
                 elif rng==-1: obj.atk.atk_betray()
 
 
@@ -481,19 +484,23 @@ def Thread():
                     heartPos = obj.menu.coords(obj.heart)
                     ## Movement
                     speed = 4
-                    if keyboard.is_pressed("left"): obj.menu.move(obj.heart, -speed, 0)
-                    if keyboard.is_pressed("right"): obj.menu.move(obj.heart, speed, 0)
-                    if keyboard.is_pressed("up"): obj.menu.move(obj.heart, 0, -speed)
-                    if keyboard.is_pressed("down"): obj.menu.move(obj.heart, 0, speed)
+
+                    move = [0, 0]
+                    if keyboard.is_pressed("left"): move[0] = -speed
+                    if keyboard.is_pressed("right"): move[0] = speed
+                    if keyboard.is_pressed("up"): move[1] = -speed
+                    if keyboard.is_pressed("down"): move[1] = speed
 
                     ## offsetLeft, offsetUp, offsetRight, offsetDown
-                    offset = [heartPos[0]-15, heartPos[1]-15, (obj.menuSize[0]*obj.screenSize[0])-heartPos[0]-30, (obj.menuSize[1]*obj.screenSize[1])-heartPos[1]-30]
+                    offset = [heartPos[0]+move[0]-15, heartPos[1]+move[1]-15, (obj.menuSize[0]*obj.screenSize[0])-heartPos[0]-move[0]-30, (obj.menuSize[1]*obj.screenSize[1])-heartPos[1]-move[1]-30]
                     
                     ## Collision with borders
-                    if offset[0] < 0: obj.menu.move(obj.heart, -offset[0], 0)
-                    if offset[1] < 0: obj.menu.move(obj.heart, 0, -offset[1])
-                    if offset[2] < 0: obj.menu.move(obj.heart, offset[2], 0)
-                    if offset[3] < 0: obj.menu.move(obj.heart, 0, offset[3])
+                    if offset[0] < 0: move[0] = 0
+                    if offset[1] < 0: move[1] = 0
+                    if offset[2] < 0: move[0] = 0
+                    if offset[3] < 0: move[1] = 0
+
+                    obj.menu.move(obj.heart, move[0], move[1])
 
                     if not obj.attackThread.is_alive(): obj.scene = 0
 
@@ -650,7 +657,7 @@ def Thread():
 
                     if selectedMenuButton == 0:
                         gave_chiki_ramen = False
-                        if obj.trust_level == 0:
+                        if obj.trust_level >= 1:
                             obj.display_text.configure(text="* Comer\n* Dar a BLOQUE DE RUTENIO")
                             obj.display_text.place(x=80, y=30, anchor="nw")
                             obj.heart_menu.place(x=0.2*obj.screenSize[0], y=0.565*obj.screenSize[1], width=29, height=29)
@@ -680,6 +687,9 @@ def Thread():
                         #### HEAL
                         if not gave_chiki_ramen:
                             obj.Damage(-20)
+
+                            obj.display_text.place_forget()
+                            obj.heart_menu.place_forget()
 
                             obj.Dialogue("* Comiste el Chiki-Ramen")
                             time.sleep(2)

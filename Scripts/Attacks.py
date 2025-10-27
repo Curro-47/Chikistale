@@ -9,8 +9,6 @@ import random
 img_spark = Image.open("Sprites\\spark.png")
 img_face = Image.open("Sprites\\placeholder.png").resize((100,100))
 img_exclamation = []
-img_exclamation.append(Image.open("Sprites\\exclamation0.png"))
-img_exclamation.append(Image.open("Sprites\\exclamation1.png"))
 
 attack_list = []
 proyectile_list = []
@@ -20,7 +18,6 @@ root = None
 player = None
 menu_size = [0, 0]
 damage = None
-dmg = 5
 
 get_scene = None
 
@@ -32,9 +29,20 @@ def Init(obj):
     damage = obj.Damage
     get_scene = obj.GetScene
 
-class _Moves:
-    #def warning_box(self, timestamp, x0, y0, x1, y1):
+    img_exclamation.append(ImageTk.PhotoImage(Image.open("Sprites\\exclamation0.png")))
+    img_exclamation.append(ImageTk.PhotoImage(Image.open("Sprites\\exclamation1.png")))
 
+class _Moves:
+    def warning_box(self, timestamp, x0, y0, x1, y1):
+        attack_list.append(Attack("warning", timestamp, Warning([x0, y0, x1, y1])))
+    def warning_box_create(self, att):
+        att.subclass.img = img_exclamation[0]
+        att.subclass.creation_time = time.time()
+
+        att.subclass.square = root.create_rectangle(att.subclass.pos[0]*menu_size[0], att.subclass.pos[1]*menu_size[1], att.subclass.pos[2]*menu_size[0], att.subclass.pos[3]*menu_size[1], outline='brown1', width=3)
+        att.subclass.sign = root.create_image((att.subclass.pos[2]+att.subclass.pos[0])/2*menu_size[0], (att.subclass.pos[3]+att.subclass.pos[1])/2*menu_size[1], image=att.subclass.img)
+
+        att.type = "warning0"
 
     def spark(self, timestamp, position, direction):
         attack_list.append(Attack("spark", timestamp, Proyectile(None, position, direction, 2)))
@@ -59,10 +67,13 @@ class _Moves:
         proyectile_list[-1].creation_time = currentTime
         attack_list.remove(att)
     
-    def face(self, timestamp, position, direction, bounce):
+    def face(self, timestamp, position, direction, bounce, dmg=5, range=50):
         attack_list.append(Attack("face", timestamp, Face(None, position, direction, bounce)))
-    def face_create(att, currentTime):
-        att.subclass.img = ImageTk.PhotoImage(img_face)
+        attack_list[-1].subclass.dmg = dmg
+        attack_list[-1].subclass.range = range
+        
+    def face_create(self, att, currentTime):
+        att.subclass.img = ImageTk.PhotoImage(img_face.resize((att.subclass.range*2+5, att.subclass.range*2+5)))
         obj_position = [menu_size[0]*att.subclass.pos[0], menu_size[1]*att.subclass.pos[1]]
         obj = root.create_image(obj_position[0], obj_position[1], image=att.subclass.img)
 
@@ -73,7 +84,40 @@ class _Moves:
 
 moves = _Moves()
 
-class Attacks:    
+class Attacks:
+    def atk_facebarage(self):
+        global attack_duration
+
+        lastDir = -1
+        for i in range(0, 4):
+            size = [0.05, 0.5] # [to low wall, close to high wall, close to low middle, ]
+            ## Choose dir
+            rng = random.randint(0, 3)
+            if rng == lastDir: rng = (rng + random.randint(1,3))%4
+            lastDir = rng
+
+            ## Get rectangle points
+            dir = None
+            if rng == 0:   dir = [size[1], size[0], 0.94-size[0], 0.94-size[0]]
+            elif rng == 1: dir = [size[0], size[1], 0.94-size[0], 0.94-size[0]]
+            elif rng == 2: dir = [size[0], size[0], 0.94-size[1], 0.94-size[0]]
+            elif rng == 3: dir = [size[0], size[0], 0.94-size[0], 0.94-size[1]]
+
+            moves.warning_box(i/2+1, dir[0], dir[1], dir[2], dir[3])
+
+            if rng == 0:   dir = [1, 0]
+            elif rng == 1: dir = [0, 1]
+            elif rng == 2: dir = [-1, 0]
+            elif rng == 3: dir = [0, -1]
+
+            pos = None
+            if dir[0] == 0: pos = [dir[1]+0.47, dir[1]/5 + 0.47] ## Down, Up
+            else: pos =           [dir[0]/4 + 0.47  , dir[0]+0.47] ## Left, Right
+            
+            moves.face(i*0.5+3, pos, [-dir[1]*16, -dir[0]*16], 0)
+
+        attack_duration = 7
+
     def atk_facebounce(self):
         global attack_duration
         face_speed = 5
@@ -93,7 +137,7 @@ class Attacks:
         pos = [pos[0]/largest_vector, pos[1]/largest_vector]
         pos = [pos[0]+0.5, pos[1]+0.5]
 
-        self.moves.face(0,pos, dir, 1)
+        moves.face(0,pos, dir, 1)
 
         attack_duration = 10
 
@@ -146,16 +190,14 @@ class Attacks:
         attack_duration = 6
 
     def atk_betray(self):
-        global attack_duration, dmg, img_face
-
-        img_face = img_face.resize((200,200))
-        dmg = 999
-        self.moves.face(0, [-0.8, 0.5], [1, 0], 0)
+        global attack_duration, img_face
+        
+        moves.face(0, [-0.8, 0.5], [1, 0], 0, 999, 100)
         attack_duration = 10
 
 def Update():
     def _Thread():
-        global attack_duration, dmg
+        global attack_duration
         startTime = time.time()
 
         while True:
@@ -165,7 +207,22 @@ def Update():
                 if currentTime >= att.timestamp:
                     #### INSTANCE ATTACKS
                     if att.type == "spark": moves.spark_create(att, currentTime)
-                    if att.type == "face": moves.face_create
+                    if att.type == "face": moves.face_create(att, currentTime)
+                    if att.type == "warning": moves.warning_box_create(att)
+
+                    #### Warning box
+                    if att.type == "warning0":
+                        blink = round(time.time()*15)%2
+
+                        att.subclass.img = img_exclamation[blink]
+                        root.itemconfigure(att.subclass.sign, image=att.subclass.img)
+
+                        if blink==1: root.itemconfigure(att.subclass.square, outline='LightGoldenrod')
+                        else: root.itemconfigure(att.subclass.square, outline='brown1')
+
+                        if time.time() > att.subclass.creation_time + 0.5:
+                            att.Delete()
+                            attack_list.remove(att)
 
             #### PROYECTILES
             for proy in proyectile_list:
@@ -177,10 +234,10 @@ def Update():
                 distanceToPlr = max(abs(plrPos[0]-proy.pos[0]), abs(plrPos[1]-proy.pos[1]))
 
                 if isinstance(proy, Proyectile):
-                    if distanceToPlr < 18: damage(dmg)
+                    if distanceToPlr < 18: damage(5)
 
                 if isinstance(proy, Face): #### If proyectile is face
-                    if distanceToPlr < 40 or (dmg>=20 and distanceToPlr < 100): damage(dmg)
+                    if distanceToPlr < proy.range: damage(proy.dmg)
 
                     ## If inside 4 bounds in order [left, right, up, down]
                     in_bounds = [proy.pos[0] >= 0, proy.pos[0] <= menu_size[0], proy.pos[1] >= 0, proy.pos[1] <= menu_size[1]]
@@ -203,7 +260,7 @@ def Update():
                 if hasattr(proy, "creation_time") and hasattr(proy, "line") and currentTime > proy.creation_time+1: 
                     root.delete(proy.line)
                 if isinstance(proy, Proyectile) and currentTime > proy.creation_time+3:
-                    root.delete(proy.obj)
+                    proy.Delete()
                     proyectile_list.remove(proy)
 
             time.sleep(0.02)
@@ -213,13 +270,11 @@ def Update():
             if get_scene() == -2: break            ## Dead
         ## Cleanup
         for proy in proyectile_list:
-            root.delete(proy.obj)
-            if hasattr(proy, "line"): root.delete(proy.line)
+            proy.Delete()
         for att in attack_list:
-            root.delete(att.subclass.obj)
+            att.Delete()
         proyectile_list.clear()
         attack_list.clear()
-        dmg = 5
 
     thread = threading.Thread(target=_Thread, daemon=True)
     thread.start()
@@ -234,6 +289,9 @@ class Attack:
         self.type = type
         self.timestamp = timestamp
         self.subclass = subclass    
+    
+    def Delete(self):
+        self.subclass.Delete()
 
 class Proyectile:
     obj = None
@@ -249,6 +307,11 @@ class Proyectile:
         self.pos = pos
         self.dir = dir
         self.speed = speed
+    
+    def Delete(self):
+        root.delete(self.obj)
+        root.delete(self.line)
+        del self
 
 class Face:
     obj = None
@@ -258,8 +321,30 @@ class Face:
     bounce = None
     creation_time = None
 
+    dmg = 5
+    range = 50
+
     def __init__(self, obj, pos, dir, bounce):
         self.obj = obj
         self.pos = pos
         self.dir = dir
         self.bounce = bounce
+    
+    def Delete(self):
+        root.delete(self.obj)
+        del self
+
+class Warning:
+    square = None
+    sign = None
+    img = None
+    pos = None
+    creation_time = None
+
+    def __init__(self, pos):
+        self.pos = pos
+    
+    def Delete(self):
+        root.delete(self.square)
+        root.delete(self.sign)
+        del self

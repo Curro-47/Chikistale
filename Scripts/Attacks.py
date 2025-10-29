@@ -7,7 +7,7 @@ import math
 import random
 
 img_spark = Image.open("Sprites\\spark.png")
-img_face = Image.open("Sprites\\placeholder.png").resize((100,100))
+img_face = Image.open("Sprites\\chikis\\boss_face.png").resize((100,100)).transpose(Image.FLIP_LEFT_RIGHT)
 img_exclamation = []
 
 attack_list = []

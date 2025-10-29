@@ -22,11 +22,17 @@ root.update()
 
 ## Import sprites and fonts
 img_gameover = Image.open("Sprites\\gameover.png").convert("RGBA")
+img_title = Image.open("Sprites\\title.png").convert("RGBA")
 
 img_boss = []
-img_boss.append(PhotoImage(file="Sprites\\placeholder.png").subsample(5, 5))
-img_boss.append(PhotoImage(file="Sprites\\boss_damage.png").subsample(5, 5))
-img_boss.append(PhotoImage(file="Sprites\\boss_death.png").subsample(5, 5))
+img_boss.append(PhotoImage(file="Sprites\\chikis\\boss_idle.png").subsample(7, 7))
+#img_boss.append(PhotoImage(file="Sprites\\placeholder.png").subsample(5, 5))
+img_boss.append(PhotoImage(file="Sprites\\chikis\\boss_hit.png").subsample(4, 4))
+#img_boss.append(PhotoImage(file="Sprites\\boss_damage.png").subsample(5, 5))
+img_boss.append(PhotoImage(file="Sprites\\chikis\\boss_squish.png").subsample(5, 5))
+img_boss.append(PhotoImage(file="Sprites\\chikis\\boss_death.png").subsample(5, 5))
+img_boss.append(PhotoImage(file="Sprites\\chikis\\boss_happy.png").subsample(3, 3))
+img_face = Image.open("Sprites\\chikis\\boss_face.png").resize((1000,1000)).transpose(Image.FLIP_LEFT_RIGHT)
 
 img_heart = PhotoImage(file="Sprites\\heart.png").zoom(3, 3).subsample(2, 2)
 img_heart_hurt = PhotoImage(file="Sprites\\heart_hurt.png").zoom(3, 3).subsample(2, 2)
@@ -43,6 +49,7 @@ img_hp = PhotoImage(file="Sprites\\hp.png")
 img_target = PhotoImage(file="Sprites\\target.png").zoom(3,3).subsample(2,2)
 img_target_aim = PhotoImage(file="Sprites\\target_aim.png").zoom(3,3).subsample(2,2)
 img_target_aim2 = PhotoImage(file="Sprites\\target_aim2.png").zoom(3,3).subsample(2,2)
+
 img_text = PhotoImage(file="Sprites\\text.png")
 
 root.iconphoto(True, img_heart)
@@ -68,13 +75,15 @@ class Objects:
 
         txtNew = ""
         
+        obj.pressed_space = False
         for chr in txt:
             if chr == '@':
                 time.sleep(0.1)
                 continue
             txtNew = txtNew + chr
             self.menu_dialogue.configure(text=txtNew)
-            time.sleep(0.05)
+            
+            if not obj.pressed_space: time.sleep(0.05)
 
     def Damage(self, dmg):
         if time.time() < self.immunity_until: return
@@ -117,7 +126,13 @@ class Objects:
             if dmg == 99: dmg = 999
 
             ## Animation
-            self.boss_img.configure(image=img_boss[1])
+            ## Death condition
+            if startBossHealth - dmg <= 0: 
+                self.scene = -3
+                self.boss_img.configure(image=img_boss[2])
+            else:
+                if obj.trust_level>=0: obj.trust_level -= 1
+                self.boss_img.configure(image=img_boss[1])
 
             loopStartGlobalTime = time.time()
             while True:
@@ -146,18 +161,11 @@ class Objects:
 
             time.sleep(0.5)
 
+            if startBossHealth - dmg > 0: self.boss_img.configure(image=img_boss[0])
+
             self.boss_health_base.place_forget()
             self.boss_damage_number0.place_forget()
             self.boss_damage_number1.place_forget()
-
-            ## Death condition
-            if startBossHealth - dmg <= 0: 
-                self.scene = -3
-                self.boss_img.configure(image=img_boss[2])
-                time.sleep(1)
-            else:
-                self.boss_img.configure(image=img_boss[0])
-                if obj.trust_level>=0: obj.trust_level -= 1
 
         thread = threading.Thread(target=_thread, daemon=True)
         thread.start()
@@ -165,7 +173,7 @@ class Objects:
 
     def __init__(self):
         ## Prepare variables
-        self.scene = 0 # 0 menu, 1 battle, 2 attack, 3 act, 4 item, 5 mercy
+        self.scene = -1 # 0 menu, 1 battle, 2 attack, 3 act, 4 item, 5 mercy
         self.selectedButton = 0
         self.trust_level = 0
         self.lastAttack = None
@@ -176,9 +184,9 @@ class Objects:
         self.screenSize = (1280, 720)
         self.lineWidth = self.screenSize[0]/100
 
-        self.max_health = 20
+        if not hasattr(self, "max_health"): self.max_health = 20
         self.health = self.max_health
-        self.max_damage = 40
+        self.max_damage = 16
         self.immunity_until = 0
 
         self.used_chikiramen = False
@@ -191,7 +199,7 @@ class Objects:
         ts.Init(self.screenSize, self.lineWidth)
 
         ## Create objects
-        self.boss, self.boss_img = ts.ImageSquare(root, x=0.5, y=0.3, w=0.2, rh=1, image=img_boss[0], offset=(0.5, 0.5))
+        self.boss, self.boss_img = ts.ImageSquare(root, x=0.5, y=0.35, w=0.2, rh=1.08, image=img_boss[0], offset=(0.5, 0.5))
         self.menu, self.menu_border = ts.Square(root, x=0.5, y=0.65, w=self.menuSize[0], h=self.menuSize[1])
         self.menu_dialogue = Label(self.menu, text="None", bg='black', fg='white', justify="left")
         self.heart = self.menu.create_image(self.menuSize[0]*self.screenSize[0]/2, self.menuSize[1]*self.screenSize[1]/2, image=img_heart)
@@ -205,7 +213,7 @@ class Objects:
         self.info_hp_text, _ = ts.ImageSquare(root, x=0.45, y=0.865, w=0.05, rh=0.5, image=img_hp, offset=(0.5, 0.5), anchor="sw", image_anchor=CENTER)
         self.info_hp_frame = ts.FillSquare(root, x=0.50, y=0.87, w=0.049, h=0.05, bg='red3', anchor="sw")
         self.info_hp_bar = ts.FillSquare(self.info_hp_frame, x=-0.001, y=0, w=0.05, h=0.05, bg='yellow', anchor="nw")
-        self.info_hp_display = ts.TextSquare(root, text="20/20", size=30, x=0.56, y=0.875, anchor="sw")
+        self.info_hp_display = ts.TextSquare(root, text=str(self.health)+"/"+str(self.max_health), size=30, x=0.56, y=0.875, anchor="sw")
 
         self.button_fight, self.button_fight_image = ts.ImageSquare(root, image=img_buttons, x=0.2, y=0.88, w=170, h=70, relative=False, anchor="nw", image_anchor="nw", offset=(0,0))
         self.button_act, self.button_act_image = ts.ImageSquare(root, image=img_buttons, x=0.36, y=0.88, w=170, h=70, relative=False, anchor="nw", image_anchor="nw", offset=(-1.05,0))
@@ -250,6 +258,7 @@ class Objects:
             self.boss.destroy()
         else: 
             self.boss.lift()
+
         self.info_hp_bar.destroy()
         self.info_hp_display.destroy()
         self.info_hp_frame.destroy()
@@ -266,20 +275,116 @@ class Objects:
         del self
 
 
-obj = Objects()
+obj = None
+
+def Keybind(bind):
+    binds = {
+        "up": ["up", "w"],
+        "down": ["down", "s"],
+        "left": ["left", "a"],
+        "right": ["right", "d"],
+        "select": ["space", "enter", "z"]
+    }
+
+    return any(keyboard.is_pressed(k) for k in binds[bind])
 
 def Thread():
     def _thread():
+        global obj
         while True:
-            obj.debug.configure(text="Scene "+str(obj.scene))
+            if obj!= None: obj.debug.configure(text="Scene "+str(obj.scene))
             #### STARTUP
-            if obj.scene == -1:
+            if obj == None or obj.scene == -1:
+                obj = Objects()
                 obj.clear()
-                time.sleep(2)
+                time.sleep(1)
+
+                tk_img0 = ImageTk.PhotoImage(img_title)
+                title = obj.menu.create_image(obj.screenSize[0]/2, obj.screenSize[1]/2, image=tk_img0)
+
+                enhancer = ImageEnhance.Brightness(img_face)
+                darker_img = enhancer.enhance(0)
+                tk_img1 = ImageTk.PhotoImage(darker_img)
+
+                face = obj.menu.create_image(obj.screenSize[0]/2, obj.screenSize[1]/2, image=tk_img1)
+                obj.menu.tag_raise(title)
+
+                startTime = time.time()
+                animDuration = 4
+                
+                obj.pressed_space = False
+                while True:
+                    currentTime = time.time() - startTime
+                    if obj.pressed_space: currentTime = animDuration
+
+                    darker_img = enhancer.enhance(currentTime / animDuration *0.2)
+                    tk_img1 = ImageTk.PhotoImage(darker_img)
+                    obj.menu.itemconfigure(face, image=tk_img1)
+
+                    obj.menu.image_ref = tk_img1
+
+                    if currentTime >= animDuration: break
+                    time.sleep(0.05)
+
+                text = Label(root, text="[ PRESS SPACE TO START ]", bg='black', fg='yellow')
+                text.place(relx=0.5, rely=0.8, anchor=CENTER)
+
+                while not obj.pressed_space: time.sleep(0.1)
+                obj.pressed_space = False
+
+                text.destroy()
+                button0 = Label(root, text="Easy", bg='black', fg='white')
+                button1 = Label(root, text="Medium", bg='black', fg='white')
+                button2 = Label(root, text="Hard", bg='black', fg='white')
+                button0.place(relx=0.3, rely=0.8, anchor=CENTER)
+                button1.place(relx=0.5, rely=0.8, anchor=CENTER)
+                button2.place(relx=0.7, rely=0.8, anchor=CENTER)
+
+                selectedButton = 0
+                def _update():
+                        nonlocal selectedButton
+                        selectedButton = selectedButton%3
+                        if selectedButton == 0: 
+                            button0.configure(fg='yellow')
+                            button1.configure(fg='white')
+                            button2.configure(fg='white')
+                        elif selectedButton == 1: 
+                            button0.configure(fg='white')
+                            button1.configure(fg='yellow')
+                            button2.configure(fg='white')
+                        elif selectedButton == 2: 
+                            button0.configure(fg='white')
+                            button1.configure(fg='white')
+                            button2.configure(fg='yellow')
+                _update()
+                while not obj.pressed_space: 
+                    if Keybind("left"): 
+                        selectedButton += -1
+                        _update()
+                    if Keybind("right"): 
+                        selectedButton += 1
+                        _update()
+                    
+                    while Keybind("left") or Keybind("right"): time.sleep(0.05)
+                    
+                    time.sleep(0.02)
+                obj.pressed_space = False
+
+                if selectedButton == 0: obj.max_health = 80
+                elif selectedButton == 1: obj.max_health = 20
+                elif selectedButton == 2: obj.max_health = 1
+                obj.health = obj.max_health
+
+                button0.destroy()
+                button1.destroy()
+                button2.destroy()
+                obj.menu.delete(title)
+                obj.menu.delete(face)
+
                 obj.__init__()
                 obj.selectedButton =-1
                 UpdateSelectedButton()
-
+                
                 obj.scene = 0
             
             #### DEATH SCENE
@@ -329,7 +434,7 @@ def Thread():
                         obj.menu.itemconfigure(shard[0], image=img_heart_shard[frame])
 
                     #### GAME OVER TEXT
-                    if startTime + 2 < time.time() and time.time() > lastUpdate + 1/20:
+                    if startTime + 2 < time.time():
                         # Set image darkness
                         darkness = min((time.time() - startTime - 2) / 2, 1)
                         enhancer = ImageEnhance.Brightness(img_gameover)
@@ -338,6 +443,8 @@ def Thread():
                         ## Add Image
                         tk_img = ImageTk.PhotoImage(darker_img)
                         obj.menu.itemconfigure(gameover, image=tk_img)
+
+                        obj.menu.image_ref = tk_img
 
                         lastUpdate = time.time()
                     time.sleep(0.02)
@@ -355,8 +462,8 @@ def Thread():
                 obj.pressed_space = False
                 
                 while obj.scene == -2:
-                    if keyboard.is_pressed("Up"): selectedMenuButton = 0
-                    if keyboard.is_pressed("Down"): selectedMenuButton = 1
+                    if Keybind("up"): selectedMenuButton = 0
+                    if Keybind("down"): selectedMenuButton = 1
                     
                     if selectedMenuButton == 0:
                         obj.heart_menu.place_configure(y=0.575*obj.screenSize[1])
@@ -381,16 +488,22 @@ def Thread():
 
                 obj.clear(["boss"])
 
+                if obj.boss_health <=0 and obj.trust_level >= 99: 
+                    txt = "Final malo verdadero:@@@@@@@@@@\nLa traicion @@@@@.@@@@@.@@@@@.@@@@@ Eres un monstruo"
+                    obj.boss_img.configure(image=img_boss[3])
+                elif obj.boss_health <=0: 
+                    txt = "Final malo:@@@@@@@@@@\nGanaste @@@@@.@@@@@.@@@@@.@@@@@ Pero a que costo"
+                    obj.boss_img.configure(image=img_boss[3])
+                elif obj.boss_health <=obj.max_damage: txt = "Final neutro:@@@@@@@@@@\nChikis A HUIDO @@@@@.@@@@@.@@@@@.@@@@@ Al menos ambos siguen vivos"
+                elif obj.trust_level == 999: 
+                    txt = "Final bueno:@@@@@@@@@@\nChikis come el chiki-ramen @@@@@.@@@@@.@@@@@.@@@@@ Le encanto"
+                    obj.boss_img.configure(image=img_boss[4])
+                else: txt = "Error:@@@@@@@@@@\nNo se encontro el final"
+
                 time.sleep(1)
 
                 obj.menu_dialogue.place(x=obj.screenSize[0]*0.5, y=obj.screenSize[1]*0.7, anchor=CENTER)
                 obj.menu_dialogue.configure(justify="center")
-
-                if obj.boss_health <=0 and obj.trust_level >= 99: txt = "Final malo verdadero:@@@@@@@@@@\nLa traicion @@@@@.@@@@@.@@@@@.@@@@@ Eres un monstruo"
-                elif obj.boss_health <=0: txt = "Final malo:@@@@@@@@@@\nGanaste @@@@@.@@@@@.@@@@@.@@@@@ Pero a que costo"
-                elif obj.boss_health <=obj.max_damage: txt = "Final neutro:@@@@@@@@@@\nBLOQUE DE RUTENIO A HUIDO @@@@@.@@@@@.@@@@@.@@@@@ Al menos ambos siguen vivos"
-                elif obj.trust_level == 999: txt = "Final bueno:@@@@@@@@@@\nBLOQUE DE RUTENIO come el chiki-ramen @@@@@.@@@@@.@@@@@.@@@@@ Le encanto"
-                else: txt = "Error:@@@@@@@@@@\nNo se encontro el final"
 
                 txt = txt + "@@@@@@@@@@@@@@@@@@@@\n\n* Jugar de nuevo \n\n* Cerrar el juego"
 
@@ -402,8 +515,8 @@ def Thread():
                 obj.pressed_space = False
                 
                 while obj.scene == -3:
-                    if keyboard.is_pressed("Up"): selectedMenuButton = 0
-                    if keyboard.is_pressed("Down"): selectedMenuButton = 1
+                    if Keybind("up"): selectedMenuButton = 0
+                    if Keybind("down"): selectedMenuButton = 1
                     
                     if selectedMenuButton == 0:
                         obj.heart_menu.place_configure(y=0.712*obj.screenSize[1])
@@ -416,7 +529,6 @@ def Thread():
                 obj.pressed_space = False
 
                 obj.menu_dialogue.destroy()
-                obj.heart_menu.destroy()
                 
                 obj.scene = -1
 
@@ -436,8 +548,9 @@ def Thread():
                 obj.selectedButton =0
                 UpdateSelectedButton()
 
-                obj.display_text.configure(text="* BLOQUE DE RUTENIO")
+                obj.display_text.configure(text="* Chikis")
                 obj.display_text.place(x=80, y=30, anchor="nw")
+                obj.menu_dialogue.lift()
 
                 while obj.scene == 0: time.sleep(0.1)
 
@@ -486,10 +599,10 @@ def Thread():
                     speed = 4
 
                     move = [0, 0]
-                    if keyboard.is_pressed("left"): move[0] = -speed
-                    if keyboard.is_pressed("right"): move[0] = speed
-                    if keyboard.is_pressed("up"): move[1] = -speed
-                    if keyboard.is_pressed("down"): move[1] = speed
+                    if Keybind("left"): move[0] += -speed
+                    if Keybind("right"): move[0] += speed
+                    if Keybind("up"): move[1] += -speed
+                    if Keybind("down"): move[1] += speed
 
                     ## offsetLeft, offsetUp, offsetRight, offsetDown
                     offset = [heartPos[0]+move[0]-15, heartPos[1]+move[1]-15, (obj.menuSize[0]*obj.screenSize[0])-heartPos[0]-move[0]-30, (obj.menuSize[1]*obj.screenSize[1])-heartPos[1]-move[1]-30]
@@ -525,7 +638,7 @@ def Thread():
                     if attackTime < 0.5: continue
 
                     obj.attack_menu.move(attack_aim, 12, 0)
-                    if keyboard.is_pressed("space"): break
+                    if Keybind("select"): break
                     if attackTime > 2.2: break
 
                     time.sleep(0.02)
@@ -571,10 +684,10 @@ def Thread():
                 selectedMenuButton = [0, 0]
                 obj.pressed_space = False
                 while obj.scene == 3:
-                    if keyboard.is_pressed("Left"): selectedMenuButton[0] = 0
-                    if keyboard.is_pressed("Right"): selectedMenuButton[0] = 1
-                    if keyboard.is_pressed("Up"): selectedMenuButton[1] = 0
-                    if keyboard.is_pressed("Down"): selectedMenuButton[1] = 1
+                    if Keybind("left"): selectedMenuButton[0] = 0
+                    if Keybind("right"): selectedMenuButton[0] = 1
+                    if Keybind("up"): selectedMenuButton[1] = 0
+                    if Keybind("down"): selectedMenuButton[1] = 1
                     
                     if selectedMenuButton == [0,0]: obj.heart_menu.place_configure(x=0.2*obj.screenSize[0], y=0.565*obj.screenSize[1])
                     if selectedMenuButton == [0,1]: obj.heart_menu.place_configure(x=0.2*obj.screenSize[0], y=0.622*obj.screenSize[1])
@@ -588,17 +701,17 @@ def Thread():
                 obj.heart_menu.place_forget()
 
                 if selectedMenuButton == [0, 0]:
-                    obj.Dialogue("* BLOQUE DE RUTENIO - ATK 5 DEF 100\n* Le gusta el ramen")
+                    obj.Dialogue("* Chikis - ATK 5 DEF 100\n* Le gusta el ramen")
 
                     obj.scene = 0
                 elif selectedMenuButton == [0, 1]:
-                    txt = ["* Pides piedad a BLOQUE DE RUTENIO\n* Te mira friamente",
-                           "* Le pides a BLOQUE DE RUTENIO \n  que reconsidere\n* No parece contestar",
-                           "* Le dices a BLOQUE DE RUTENIO que \n  el no es asi\n* Parece que lo piensa un poco",
-                           "* Tratas de convencer a BLOQUE DE RUTENIO\n* Lo esta considerando",
-                           "* Le pides unas ultimas disculpas a \n  BLOQUE DE RUTENIO\n* Parece a punto de aceptar\n* Tal vez un regalo podria ayudar",
+                    txt = ["* Pides piedad a Chikis\n* Te mira friamente",
+                           "* Le pides a Chikis \n  que reconsidere\n* No parece contestar",
+                           "* Le dices a Chikis que \n  el no es asi\n* Parece que lo piensa un poco",
+                           "* Tratas de convencer a Chikis\n* Lo esta considerando",
+                           "* Le pides unas ultimas disculpas a \n  Chikis\n* Parece a punto de aceptar\n* Tal vez un regalo podria ayudar",
                            "***",
-                           "* Le pides disculpas a BLOQUE DE RUTENIO\n* Te mira con odio"]
+                           "* Le pides disculpas a Chikis\n* Te mira con odio"]
                     
                     obj.Dialogue(txt[obj.trust_level])
 
@@ -609,7 +722,7 @@ def Thread():
                     if obj.trust_level >= 5: obj.spare_condition = True
                     obj.scene = 1
                 elif selectedMenuButton == [1, 0]:
-                    obj.Dialogue("* Insultas a BLOQUE DE RUTENIO\n* Se ve mas enojado?")
+                    obj.Dialogue("* Insultas a Chikis\n* Se ve mas enojado?")
 
                     time.sleep(2)
                     obj.menu_dialogue.place_forget()
@@ -630,8 +743,8 @@ def Thread():
                 if (obj.used_chikiramen):
                     obj.display_text.configure(text="* Regresar\n\nNo tienes objetos")
 
-                    while keyboard.is_pressed("space"): time.sleep(0.02)
-                    while not keyboard.is_pressed("space"): time.sleep(0.02)
+                    while Keybind("select"): time.sleep(0.02)
+                    while not Keybind("select"): time.sleep(0.02)
 
                     obj.display_text.place_forget()
                     obj.heart_menu.place_forget()
@@ -642,8 +755,8 @@ def Thread():
 
                     selectedMenuButton = 0
                     while obj.scene == 4:
-                        if keyboard.is_pressed("Up"): selectedMenuButton = 0
-                        if keyboard.is_pressed("Down"): selectedMenuButton = 1
+                        if Keybind("up"): selectedMenuButton = 0
+                        if Keybind("down"): selectedMenuButton = 1
                         
                         if selectedMenuButton == 0:
                             obj.heart_menu.place_configure(y=0.565*obj.screenSize[1])
@@ -657,15 +770,15 @@ def Thread():
 
                     if selectedMenuButton == 0:
                         gave_chiki_ramen = False
-                        if obj.trust_level >= 1:
-                            obj.display_text.configure(text="* Comer\n* Dar a BLOQUE DE RUTENIO")
+                        if obj.trust_level >= 5:
+                            obj.display_text.configure(text="* Comer\n* Dar a Chikis")
                             obj.display_text.place(x=80, y=30, anchor="nw")
                             obj.heart_menu.place(x=0.2*obj.screenSize[0], y=0.565*obj.screenSize[1], width=29, height=29)
 
                             selectedMenuButton = 0
                             while obj.scene == 4:
-                                if keyboard.is_pressed("Up"): selectedMenuButton = 0
-                                if keyboard.is_pressed("Down"): selectedMenuButton = 1
+                                if Keybind("up"): selectedMenuButton = 0
+                                if Keybind("down"): selectedMenuButton = 1
                                 
                                 if selectedMenuButton == 0:
                                     obj.heart_menu.place_configure(y=0.565*obj.screenSize[1])
@@ -679,7 +792,7 @@ def Thread():
 
                                 obj.display_text.place_forget()
                                 obj.heart_menu.place_forget()
-                                obj.Dialogue("* BLOQUE DE RUTENIO devora el ramen\n* Ya no quiere pelear")
+                                obj.Dialogue("* Chikis devora el ramen\n* Ya no quiere pelear")
 
                                 obj.trust_level = 999
                                 obj.scene = 0
@@ -714,8 +827,8 @@ def Thread():
                 selectedMenuButton = 0
                 obj.pressed_space = False
                 while obj.scene == 5:
-                    if keyboard.is_pressed("Up"): selectedMenuButton = max(selectedMenuButton-1, 0)
-                    if keyboard.is_pressed("Down"): selectedMenuButton = min(selectedMenuButton+1, 2)
+                    if Keybind("up"): selectedMenuButton = max(selectedMenuButton-1, 0)
+                    if Keybind("down"): selectedMenuButton = min(selectedMenuButton+1, 2)
                     
                     if selectedMenuButton == 0:
                         obj.heart_menu.place_configure(y=0.565*obj.screenSize[1])
@@ -725,7 +838,7 @@ def Thread():
                         obj.heart_menu.place_configure(y=0.679*obj.screenSize[1])
                     if obj.pressed_space: break
 
-                    while keyboard.is_pressed("Up") or keyboard.is_pressed("Down"): time.sleep(0.1)
+                    while Keybind("up") or Keybind("down"): time.sleep(0.1)
                     time.sleep(0.02)
                 obj.pressed_space = False
 
@@ -735,23 +848,23 @@ def Thread():
                 if selectedMenuButton == 0:
                     if obj.trust_level >= 99:
                         ## Spare ending
-                        obj.Dialogue("* BLOQUE DE RUTENIO acepta tu piedad@@@@@\n* Decide no pelear")
+                        obj.Dialogue("* Chikis acepta tu piedad@@@@@\n* Decide no pelear")
                         obj.scene = -3
                     elif obj.spare_condition:
                         ## Spare ending
-                        obj.Dialogue("* BLOQUE DE RUTENIO acepta tu piedad@@@@@\n* Y se arrastra tristemente")
+                        obj.Dialogue("* Chikis acepta tu piedad@@@@@\n* Y se arrastra tristemente")
                         obj.scene = -3
                     elif obj.trust_level < 0:
                         ## Betrayal ending
-                        obj.Dialogue("* BLOQUE DE RUTENIO acepta tu piedad@@@@@\n* Es broma claro que no")
+                        obj.Dialogue("* Chikis acepta tu piedad@@@@@\n* Es broma claro que no")
                         obj.trust_level = -99
                         obj.scene = 1
                     else:
-                        obj.Dialogue("* BLOQUE DE RUTENIO no acepta tu piedad")
+                        obj.Dialogue("* Chikis no acepta tu piedad")
                         obj.scene = 1
                     time.sleep(2)
                 elif selectedMenuButton == 1:
-                    obj.Dialogue("* BLOQUE DE RUTENIO bloquea el camino")
+                    obj.Dialogue("* Chikis bloquea el camino")
                     time.sleep(2)
                     obj.scene = 1
                 else: 
@@ -767,15 +880,17 @@ def Thread():
     threading.Thread(target=_thread, daemon=True).start()
 
 def InputDebug(event):
-    obj.max_damage = 999
+    obj.trust_level = 999
 root.bind("<f>", InputDebug)
 
 def InputSelect(event):
-    if obj.scene in [-3, -2, 3, 4, 5]: obj.pressed_space = True
+    if obj.scene in [-3, -2, -1, 3, 4, 5]: obj.pressed_space = True
     if obj.scene != 0 or obj.selectedButton == -1: return
 
     obj.scene = obj.selectedButton+2
 root.bind("<space>", InputSelect)
+root.bind("<Return>", InputSelect)
+root.bind("<z>", InputSelect)
 
 def InputLeft(event):
     if obj.scene != 0 or obj.selectedButton == -1: return
@@ -783,6 +898,7 @@ def InputLeft(event):
     obj.selectedButton = (obj.selectedButton-1)%4
     UpdateSelectedButton()
 root.bind("<Left>", InputLeft)
+root.bind("<a>", InputLeft)
 
 def InputRight(event):
     if obj.scene != 0 or obj.selectedButton == -1: return
@@ -790,6 +906,7 @@ def InputRight(event):
     obj.selectedButton = (obj.selectedButton+1)%4
     UpdateSelectedButton()
 root.bind("<Right>", InputRight)
+root.bind("<d>", InputRight)
 
 def UpdateSelectedButton():
     if obj.selectedButton==0: obj.button_fight_image.place_configure(y=-81)

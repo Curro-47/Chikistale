@@ -7,27 +7,40 @@ mixer.init()
 moosic_n_bells = {
 
 #variables sound list
-"soundTest" : mixer.Sound("mp3tale\\vine-boom.mp3"),
-"soundHurt" : mixer.Sound("mp3tale\\undertale-damage-taken.mp3"),
-"soundHeal" : mixer.Sound("mp3tale\\undertale-heal.mp3"),
-"soundSelect" : mixer.Sound("mp3tale\\undertale-select-sound.mp3"),
-"soundSave" : mixer.Sound("mp3tale\\undertale-save.mp3"),
-"soundSoulShatter" : mixer.Sound("mp3tale\\undertale-soul-shatter.mp3"),
-"soundAttackLaser" : mixer.Sound("mp3tale\\gaster_blaster_sound_effect_1.mp3"),
+"soundTest" : mixer.Sound("Sounds\\vine-boom.mp3"),
+"soundHurt" : mixer.Sound("Sounds\\undertale-damage-taken.mp3"),
+"soundHeal" : mixer.Sound("Sounds\\undertale-heal.mp3"),
+"soundSelect" : mixer.Sound("Sounds\\undertale-select-sound.mp3"),
+"soundSave" : mixer.Sound("Sounds\\undertale-save.mp3"),
+"soundSoulShatter" : mixer.Sound("Sounds\\undertale-soul-shatter.mp3"),
+"soundAttackLaser" : mixer.Sound("Sounds\\gaster_blaster_sound_effect_1.mp3"),
+"soundAttack" : mixer.Sound("Sounds\\undertale-attack-slash-green-screen.mp3"),
+"soundBone" : mixer.Sound("Sounds\\bone-undertale-sound-effect.mp3"),
 #moosic    
-"musicBG1" : mixer.Sound("mp3tale\\Bonetrousle.mp3"),
-"musicBG2" : mixer.Sound("mp3tale\\Dummy.mp3"),
-"musicGameOver" : mixer.Sound("mp3tale\\Determination.mp3"),
-"musicGameOverRevenge" : mixer.Sound("mp3tale\\Dogsong.mp3"),
-"musicGoodEnding" : mixer.Sound("mp3tale\\The Choice.mp3"),
-"yourBestNightmare" : mixer.Sound("mp3tale\\your-best-nightmare.mp3")
+"musicStartMenu" : mixer.Sound("Sounds\\StartMenu.mp3"),
+"musicBG1" : mixer.Sound("Sounds\\Bonetrousle.mp3"),
+"musicBG2" : mixer.Sound("Sounds\\Dummy.mp3"),
+"musicGameOver" : mixer.Sound("Sounds\\Determination.mp3"),
+"musicGameOverRevenge" : mixer.Sound("Sounds\\Dogsong.mp3"),
+"musicGoodEnding" : mixer.Sound("Sounds\\The Choice.mp3"),
+"yourBestNightmare" : mixer.Sound("Sounds\\your-best-nightmare.mp3")
 
 }
 
 
 #defs
-def play_sound(key):
-    moosic_n_bells[key].play()
+def play_sound(key, vol=1, loops=0):
+    moosic_n_bells[key].set_volume(vol)
+    moosic_n_bells[key].play(loops=loops)
+
+def pause():
+    mixer.pause()
+
+def play():
+    mixer.unpause()
+
+def volume_sound(key, vol):
+    moosic_n_bells[key].set_volume(vol)
 
 def stop_sound(key):
     moosic_n_bells[key].stop()

@@ -11,6 +11,8 @@ import random
 import Scripts.TkinterShapes as ts
 import Scripts.Attacks as attacks
 import Scripts.CustomFonts as cFonts
+import Scripts.DialogueSystem as dialogue
+import Scripts.SoundLibrary as sounds
 
 ## Setup tkinter window
 root = Tk()
@@ -23,6 +25,7 @@ root.update()
 ## Import sprites and fonts
 img_gameover = Image.open("Sprites\\gameover.png").convert("RGBA")
 img_title = Image.open("Sprites\\title.png").convert("RGBA")
+img_loadscreen = Image.open("Sprites\\chikis\\load_screen.png").resize((1058, 625)).convert("RGBA")
 
 img_boss = []
 img_boss.append(PhotoImage(file="Sprites\\chikis\\boss_idle.png").subsample(7, 7))
@@ -55,7 +58,6 @@ img_text = PhotoImage(file="Sprites\\text.png")
 root.iconphoto(True, img_heart)
 
 cFonts.loadfont(b"Fonts\\DeterminationMonoWebRegular-Z5oq.ttf")
-font_determination = tkFont.Font(family="Determination Mono Web", size=12)
 default_font = tkFont.nametofont("TkDefaultFont")
 default_font.configure(family="Determination Mono Web", size=12)
 
@@ -87,6 +89,9 @@ class Objects:
 
     def Damage(self, dmg):
         if time.time() < self.immunity_until: return
+
+        if dmg > 0: sounds.play_sound("soundHurt")
+        else: sounds.play_sound("soundHeal")
 
         self.health -= dmg
 
@@ -171,7 +176,7 @@ class Objects:
         thread.start()
         return thread
 
-    def __init__(self):
+    def __init__(self, place = True):
         ## Prepare variables
         self.scene = -1 # 0 menu, 1 battle, 2 attack, 3 act, 4 item, 5 mercy
         self.selectedButton = 0
@@ -180,7 +185,7 @@ class Objects:
         self.attackThread = None
 
         ## Customization
-        self.menuSize = (0.7, 0.3)
+        self.menuSize = (0.67, 0.3)
         self.screenSize = (1280, 720)
         self.lineWidth = self.screenSize[0]/100
 
@@ -197,41 +202,34 @@ class Objects:
         self.boss_health = self.boss_max_health
 
         ts.Init(self.screenSize, self.lineWidth)
+        dialogue._init_(root)
 
         ## Create objects
-        self.boss, self.boss_img = ts.ImageSquare(root, x=0.5, y=0.35, w=0.2, rh=1.08, image=img_boss[0], offset=(0.5, 0.5))
-        self.menu, self.menu_border = ts.Square(root, x=0.5, y=0.65, w=self.menuSize[0], h=self.menuSize[1])
+        self.boss, self.boss_img = ts.ImageSquare(root, x=0.5, y=0.35, w=0.2, rh=1.08, image=img_boss[0], offset=(0.5, 0.5), place=place)
+        self.menu, self.menu_border = ts.Square(root, x=0.5, y=0.65, w=self.menuSize[0], h=self.menuSize[1], place=place)
         self.menu_dialogue = Label(self.menu, text="None", bg='black', fg='white', justify="left")
         self.heart = self.menu.create_image(self.menuSize[0]*self.screenSize[0]/2, self.menuSize[1]*self.screenSize[1]/2, image=img_heart)
-        self.heart_menu, self.heart_menu_img = ts.ImageSquare(root, image=img_heart, x=0.5, y=0.5, w=40, rh=1, relative=False, image_anchor="nw")
-        self.heart_menu.place_forget()
+        self.heart_menu, self.heart_menu_img = ts.ImageSquare(root, image=img_heart, x=0.5, y=0.5, w=40, rh=1, relative=False, image_anchor="nw", place=False)
 
-        self.debug = Label(root, text="Debug")
-        self.debug.place(x=0, y=0)
+        self.info_name = ts.TextSquare(root, text="CURRO  LV 1", size=30, x=0.25, y=0.875, anchor="sw", place=place)
+        self.info_hp_text, _ = ts.ImageSquare(root, x=0.45, y=0.865, w=0.05, rh=0.5, image=img_hp, offset=(0.5, 0.5), anchor="sw", image_anchor=CENTER, place=place)
+        self.info_hp_frame = ts.FillSquare(root, x=0.50, y=0.87, w=0.049, h=0.05, bg='red3', anchor="sw", place=place)
+        self.info_hp_bar = ts.FillSquare(self.info_hp_frame, x=-0.001, y=0, w=0.05, h=0.05, bg='yellow', anchor="nw", place=place)
+        self.info_hp_display = ts.TextSquare(root, text=str(self.health)+"/"+str(self.max_health), size=30, x=0.56, y=0.875, anchor="sw", place=place)
 
-        self.info_name = ts.TextSquare(root, text="CURRO  LV 1", size=30, x=0.25, y=0.875, anchor="sw")
-        self.info_hp_text, _ = ts.ImageSquare(root, x=0.45, y=0.865, w=0.05, rh=0.5, image=img_hp, offset=(0.5, 0.5), anchor="sw", image_anchor=CENTER)
-        self.info_hp_frame = ts.FillSquare(root, x=0.50, y=0.87, w=0.049, h=0.05, bg='red3', anchor="sw")
-        self.info_hp_bar = ts.FillSquare(self.info_hp_frame, x=-0.001, y=0, w=0.05, h=0.05, bg='yellow', anchor="nw")
-        self.info_hp_display = ts.TextSquare(root, text=str(self.health)+"/"+str(self.max_health), size=30, x=0.56, y=0.875, anchor="sw")
-
-        self.button_fight, self.button_fight_image = ts.ImageSquare(root, image=img_buttons, x=0.2, y=0.88, w=170, h=70, relative=False, anchor="nw", image_anchor="nw", offset=(0,0))
-        self.button_act, self.button_act_image = ts.ImageSquare(root, image=img_buttons, x=0.36, y=0.88, w=170, h=70, relative=False, anchor="nw", image_anchor="nw", offset=(-1.05,0))
-        self.button_item, self.button_item_image = ts.ImageSquare(root, image=img_buttons, x=0.64, y=0.88, w=170, h=70, relative=False, anchor="ne", image_anchor="nw", offset=(-2.1,0))
-        self.button_mercy, self.button_mercy_image = ts.ImageSquare(root, image=img_buttons, x=0.8, y=0.88, w=170, h=70, relative=False, anchor="ne", image_anchor="nw", offset=(-3.15,0))
+        self.button_fight, self.button_fight_image = ts.ImageSquare(root, image=img_buttons, x=0.2, y=0.88, w=170, h=70, relative=False, anchor="nw", image_anchor="nw", offset=(0,0), place=place)
+        self.button_act, self.button_act_image = ts.ImageSquare(root, image=img_buttons, x=0.36, y=0.88, w=170, h=70, relative=False, anchor="nw", image_anchor="nw", offset=(-1.05,0), place=place)
+        self.button_item, self.button_item_image = ts.ImageSquare(root, image=img_buttons, x=0.64, y=0.88, w=170, h=70, relative=False, anchor="ne", image_anchor="nw", offset=(-2.1,0), place=place)
+        self.button_mercy, self.button_mercy_image = ts.ImageSquare(root, image=img_buttons, x=0.8, y=0.88, w=170, h=70, relative=False, anchor="ne", image_anchor="nw", offset=(-3.15,0), place=place)
 
         self.attack_menu = Canvas(self.menu, bg='black')
         self.attack_target = self.attack_menu.create_image(self.screenSize[0]*self.menuSize[0]/2-self.screenSize[0]/100, self.screenSize[1]*self.menuSize[1]/2+self.screenSize[0]/200, image=img_target)
         self.attack_aim = self.attack_menu.create_image(0, self.screenSize[1]*self.menuSize[1]/2+self.screenSize[0]/200, image=img_target_aim)
 
-        self.boss_health_base = ts.FillSquare(root, x=0.5, y=0.15, w=0.15, h=0.04, bg='gray26')
+        self.boss_health_base = ts.FillSquare(root, x=0.5, y=0.15, w=0.15, h=0.04, bg='gray26', place=False)
         self.boss_health_bar = ts.FillSquare(self.boss_health_base, x=0, y=0, w=0.15, h=0.04, bg='green3', anchor="nw")
-        self.boss_damage_number0, self.bdn0 = ts.ImageSquare(root, x=0.48, y=0.09, w=0.0457, rh=1, image=img_text, image_anchor="nw", offset=cFonts.char(8))
-        self.boss_damage_number1, self.bdn1 = ts.ImageSquare(root, x=0.52, y=0.09, w=0.0457, rh=1, image=img_text, image_anchor="nw", offset=cFonts.char(7))
-
-        self.boss_health_base.place_forget()
-        self.boss_damage_number0.place_forget()
-        self.boss_damage_number1.place_forget()
+        self.boss_damage_number0, self.bdn0 = ts.ImageSquare(root, x=0.48, y=0.09, w=0.0457, rh=1, image=img_text, image_anchor="nw", offset=cFonts.char(8), place=False)
+        self.boss_damage_number1, self.bdn1 = ts.ImageSquare(root, x=0.52, y=0.09, w=0.0457, rh=1, image=img_text, image_anchor="nw", offset=cFonts.char(7), place=False)
 
         self.display_text = Label(self.menu, text="* Chiki-ramen", bg='black', fg='white', justify="left")
 
@@ -292,11 +290,11 @@ def Thread():
     def _thread():
         global obj
         while True:
-            if obj!= None: obj.debug.configure(text="Scene "+str(obj.scene))
             #### STARTUP
             if obj == None or obj.scene == -1:
-                obj = Objects()
+                obj = Objects(False)
                 obj.clear()
+                sounds.stop_soundAll()
                 time.sleep(1)
 
                 tk_img0 = ImageTk.PhotoImage(img_title)
@@ -308,6 +306,8 @@ def Thread():
 
                 face = obj.menu.create_image(obj.screenSize[0]/2, obj.screenSize[1]/2, image=tk_img1)
                 obj.menu.tag_raise(title)
+
+                sounds.play_sound("soundHurt")
 
                 startTime = time.time()
                 animDuration = 4
@@ -331,57 +331,96 @@ def Thread():
 
                 while not obj.pressed_space: time.sleep(0.1)
                 obj.pressed_space = False
+                sounds.play_sound("soundSelect")
 
                 text.destroy()
-                button0 = Label(root, text="Easy", bg='black', fg='white')
+                obj.menu.delete(title)
+                obj.menu.delete(face)
+                text = Label(root, justify="left", text="-- Instructions --\n\n[W, A, S, D] or [Arrow Keys]\nMove\n\n[Space or Enter or Z]\nSelect\n\nPorfa excentenos el\nsemestre profe", bg='black', fg='gray')
+                text.place(relx=0.3, rely=0.08)
                 button1 = Label(root, text="Medium", bg='black', fg='white')
+                button0 = Label(root, text="Easy", bg='black', fg='white')
                 button2 = Label(root, text="Hard", bg='black', fg='white')
-                button0.place(relx=0.3, rely=0.8, anchor=CENTER)
-                button1.place(relx=0.5, rely=0.8, anchor=CENTER)
-                button2.place(relx=0.7, rely=0.8, anchor=CENTER)
+                button0.place(relx=0.3, rely=0.7)
+                button1.place(relx=0.3, rely=0.76)
+                button2.place(relx=0.3, rely=0.82)
+
+                sounds.play_sound("musicStartMenu", vol=0.5, loops=-1)
 
                 selectedButton = 0
                 def _update():
-                        nonlocal selectedButton
-                        selectedButton = selectedButton%3
-                        if selectedButton == 0: 
-                            button0.configure(fg='yellow')
-                            button1.configure(fg='white')
-                            button2.configure(fg='white')
-                        elif selectedButton == 1: 
-                            button0.configure(fg='white')
-                            button1.configure(fg='yellow')
-                            button2.configure(fg='white')
-                        elif selectedButton == 2: 
-                            button0.configure(fg='white')
-                            button1.configure(fg='white')
-                            button2.configure(fg='yellow')
+                    nonlocal selectedButton
+                    selectedButton = selectedButton%3
+                    if selectedButton == 0: 
+                        button0.configure(fg='yellow')
+                        button1.configure(fg='white')
+                        button2.configure(fg='white')
+                    elif selectedButton == 1: 
+                        button0.configure(fg='white')
+                        button1.configure(fg='yellow')
+                        button2.configure(fg='white')
+                    elif selectedButton == 2: 
+                        button0.configure(fg='white')
+                        button1.configure(fg='white')
+                        button2.configure(fg='yellow')
                 _update()
                 while not obj.pressed_space: 
-                    if Keybind("left"): 
+                    if Keybind("up"): 
                         selectedButton += -1
                         _update()
-                    if Keybind("right"): 
+                    if Keybind("down"): 
                         selectedButton += 1
                         _update()
                     
-                    while Keybind("left") or Keybind("right"): time.sleep(0.05)
+                    while Keybind("up") or Keybind("down"): time.sleep(0.05)
                     
                     time.sleep(0.02)
                 obj.pressed_space = False
+                sounds.play_sound("soundSelect")
 
-                if selectedButton == 0: obj.max_health = 80
+                if selectedButton == 0: obj.max_health = 40
                 elif selectedButton == 1: obj.max_health = 20
                 elif selectedButton == 2: obj.max_health = 1
                 obj.health = obj.max_health
 
+                sounds.stop_sound("musicStartMenu")
+                text.destroy()
                 button0.destroy()
                 button1.destroy()
                 button2.destroy()
-                obj.menu.delete(title)
-                obj.menu.delete(face)
+
+                time.sleep(1.5)
+
+                sounds.play_sound("musicBG2", vol=0, loops=-1)
+
+                enhancer = ImageEnhance.Brightness(img_loadscreen)
+                darker_img = enhancer.enhance(0)
+                tk_img = ImageTk.PhotoImage(darker_img)
+
+                load_screen = Label(root, image=tk_img, bg='black')
+                load_screen.place(relx=0.507, rely=0.557, anchor=CENTER)
+
+                startTime = time.time()
+                animDuration = 8
+
+                while True:
+                    currentTime = time.time() - startTime
+
+                    darker_img = enhancer.enhance(currentTime / animDuration)
+                    tk_img = ImageTk.PhotoImage(darker_img)
+                    load_screen.configure(image=tk_img)
+
+                    obj.menu.image_ref = tk_img
+
+                    sounds.volume_sound("musicBG2", currentTime / animDuration * 0.5)
+
+                    if currentTime >= animDuration: break
+                    time.sleep(0.05)
 
                 obj.__init__()
+                time.sleep(0.1)
+                load_screen.destroy()
+
                 obj.selectedButton =-1
                 UpdateSelectedButton()
                 
@@ -396,17 +435,20 @@ def Thread():
                 heartPos = obj.menu.coords(obj.heart)
                 heartPos = [heartPos[0] + menuOffset[0], heartPos[1] + menuOffset[1]]
 
+                sounds.stop_sound("musicBG2")
+                sounds.play_sound("soundSoulShatter")
+
                 obj.clear(["heart"])
 
                 ## Invisible gameover screen
                 gameover = obj.menu.create_image(obj.screenSize[0]/2, obj.screenSize[1]*0.2)
 
                 ## Heart break
-                time.sleep(0.3)
+                time.sleep(0.4)
                 obj.menu.itemconfigure(obj.heart, image=img_heart_broken)
 
                 ## Heart explode
-                time.sleep(1.5)
+                time.sleep(1.3)
                 obj.menu.delete(obj.heart)
                 heart_shards = []
                 for i in range(6):
@@ -421,7 +463,7 @@ def Thread():
                     heart_shards.append([shard, dir])
 
                 startTime = time.time()
-                lastUpdate = startTime
+                gameover_started = False
                 while startTime > time.time() - 4:
                     #### HEART SHARDS
                     for shard in heart_shards:
@@ -435,6 +477,10 @@ def Thread():
 
                     #### GAME OVER TEXT
                     if startTime + 2 < time.time():
+                        if not gameover_started:
+                            sounds.play_sound("musicGameOver", vol=0.5, loops=-1)
+                            gameover_started = True
+
                         # Set image darkness
                         darkness = min((time.time() - startTime - 2) / 2, 1)
                         enhancer = ImageEnhance.Brightness(img_gameover)
@@ -445,8 +491,6 @@ def Thread():
                         obj.menu.itemconfigure(gameover, image=tk_img)
 
                         obj.menu.image_ref = tk_img
-
-                        lastUpdate = time.time()
                     time.sleep(0.02)
 
                 obj.menu_dialogue.place(x=obj.screenSize[0]*0.5, y=obj.screenSize[1]*0.65, anchor=CENTER)
@@ -474,6 +518,8 @@ def Thread():
                         break
                     time.sleep(0.02)
                 obj.pressed_space = False
+                sounds.stop_sound("musicGameOver")
+                sounds.play_sound("soundSelect")
 
                 obj.heart_menu.place_forget()
                 obj.menu_dialogue.destroy()
@@ -485,6 +531,9 @@ def Thread():
             elif obj.scene == -3:
                 obj.selectedButton =-1
                 UpdateSelectedButton()
+
+                sounds.stop_sound("musicBG2")
+                sounds.play_sound("musicGoodEnding", vol=0.5, loops=-1)
 
                 obj.clear(["boss"])
 
@@ -527,6 +576,7 @@ def Thread():
                         break
                     time.sleep(0.02)
                 obj.pressed_space = False
+                sounds.play_sound("soundSelect")
 
                 obj.menu_dialogue.destroy()
                 
@@ -553,6 +603,7 @@ def Thread():
                 obj.menu_dialogue.lift()
 
                 while obj.scene == 0: time.sleep(0.1)
+                sounds.play_sound("soundSelect")
 
                 obj.menu_dialogue.place_forget()
                 obj.display_text.place_forget()
@@ -571,7 +622,7 @@ def Thread():
                 
                 #### Choose attack
                 rng = random.randint(0, 3)
-                if rng == obj.lastAttack: rng = (random.randint(1, 3)+1)%3
+                if rng == obj.lastAttack: rng = (rng + random.randint(1, 3))%4
                 obj.lastAttack = rng
                 if obj.trust_level <= -99: rng = -1
 
@@ -643,8 +694,11 @@ def Thread():
 
                     time.sleep(0.02)
 
+                sounds.play_sound("soundAttack")
+                time.sleep(0.2)
+
                 attackStartGlobalTime = time.time()
-                
+
                 def AnimAim():
                     attackTime = time.time() - attackStartGlobalTime
                     while attackTime < 0.75:
@@ -672,6 +726,8 @@ def Thread():
                 if obj.boss_health < obj.max_damage: obj.spare_condition = True
                 if obj.scene != -3: obj.scene = 1
 
+                dialogue.dialogos("ataque")
+
             ## Act obj.scene
             elif obj.scene == 3:
                 obj.selectedButton =-1
@@ -696,6 +752,7 @@ def Thread():
 
                     if obj.pressed_space: break
                 obj.pressed_space = False
+                sounds.play_sound("soundSelect")
 
                 obj.display_text.place_forget()
                 obj.heart_menu.place_forget()
@@ -764,6 +821,7 @@ def Thread():
                             obj.heart_menu.place_configure(y=0.622*obj.screenSize[1])
                         if obj.pressed_space: break
                     obj.pressed_space = False
+                    sounds.play_sound("soundSelect")
 
                     obj.display_text.place_forget()
                     obj.heart_menu.place_forget()
@@ -786,6 +844,7 @@ def Thread():
                                     obj.heart_menu.place_configure(y=0.622*obj.screenSize[1])
                                 if obj.pressed_space: break
                             obj.pressed_space = False
+                            sounds.play_sound("soundSelect")
 
                             if selectedMenuButton == 1: 
                                 gave_chiki_ramen = True
@@ -793,6 +852,8 @@ def Thread():
                                 obj.display_text.place_forget()
                                 obj.heart_menu.place_forget()
                                 obj.Dialogue("* Chikis devora el ramen\n* Ya no quiere pelear")
+
+                                dialogue.spawn_bubble("Estuvo delicioso,\nmuchas gracias")
 
                                 obj.trust_level = 999
                                 obj.scene = 0
@@ -806,6 +867,8 @@ def Thread():
 
                             obj.Dialogue("* Comiste el Chiki-Ramen")
                             time.sleep(2)
+
+                            dialogue.spawn_bubble("Acaso...\nEso fue un\nramen?")
 
                             obj.menu_dialogue.place_forget()
                             obj.used_chikiramen = True
@@ -841,6 +904,7 @@ def Thread():
                     while Keybind("up") or Keybind("down"): time.sleep(0.1)
                     time.sleep(0.02)
                 obj.pressed_space = False
+                sounds.play_sound("soundSelect")
 
                 obj.display_text.place_forget()
                 obj.heart_menu.place_forget()
@@ -849,22 +913,27 @@ def Thread():
                     if obj.trust_level >= 99:
                         ## Spare ending
                         obj.Dialogue("* Chikis acepta tu piedad@@@@@\n* Decide no pelear")
+                        dialogue.spawn_bubble("Estas oficialmente\nPERDONADO")
                         obj.scene = -3
                     elif obj.spare_condition:
                         ## Spare ending
                         obj.Dialogue("* Chikis acepta tu piedad@@@@@\n* Y se arrastra tristemente")
+                        dialogue.spawn_bubble("Esta bien...\nTu ganas")
                         obj.scene = -3
                     elif obj.trust_level < 0:
                         ## Betrayal ending
-                        obj.Dialogue("* Chikis acepta tu piedad@@@@@\n* Es broma claro que no")
+                        obj.Dialogue("* Chikis acepta tu piedad@@@@@\n* Es broma, claro que no")
+                        dialogue.spawn_bubble("Hasta crees")
                         obj.trust_level = -99
                         obj.scene = 1
                     else:
                         obj.Dialogue("* Chikis no acepta tu piedad")
+                        dialogue.spawn_bubble("No")
                         obj.scene = 1
                     time.sleep(2)
                 elif selectedMenuButton == 1:
                     obj.Dialogue("* Chikis bloquea el camino")
+                    dialogue.spawn_bubble("A donde\ncrees que vas")
                     time.sleep(2)
                     obj.scene = 1
                 else: 

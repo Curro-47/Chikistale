@@ -5,7 +5,7 @@ a = Analysis(
     ['Overtale.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('Fonts', 'Fonts'), ('Sprites', 'Sprites'), ('Sounds', 'Sounds'), ('Scripts', 'Scripts')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

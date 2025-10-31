@@ -1,5 +1,5 @@
 from tkinter import *
-import Scripts.TkinterShapes as ts
+import Scripts.SoundLibrary as sounds
 from PIL import Image, ImageTk
 import time
 import threading
@@ -36,6 +36,8 @@ class _Moves:
     def warning_box(self, timestamp, x0, y0, x1, y1):
         attack_list.append(Attack("warning", timestamp, Warning([x0, y0, x1, y1])))
     def warning_box_create(self, att):
+        sounds.play_sound("soundSelect")
+
         att.subclass.img = img_exclamation[0]
         att.subclass.creation_time = time.time()
 
@@ -47,6 +49,8 @@ class _Moves:
     def spark(self, timestamp, position, direction):
         attack_list.append(Attack("spark", timestamp, Proyectile(None, position, direction, 2)))
     def spark_create(self, att, currentTime):
+        sounds.play_sound("soundHeal", vol=0.5)
+
         ## Rotate image based on direction
         rotation = math.degrees(math.atan2(att.subclass.dir[0], att.subclass.dir[1]))
         att.subclass.img = ImageTk.PhotoImage(img_spark.rotate(rotation))
@@ -73,6 +77,8 @@ class _Moves:
         attack_list[-1].subclass.range = range
         
     def face_create(self, att, currentTime):
+        sounds.play_sound("soundBone")
+
         att.subclass.img = ImageTk.PhotoImage(img_face.resize((att.subclass.range*2+5, att.subclass.range*2+5)))
         obj_position = [menu_size[0]*att.subclass.pos[0], menu_size[1]*att.subclass.pos[1]]
         obj = root.create_image(obj_position[0], obj_position[1], image=att.subclass.img)
@@ -251,8 +257,12 @@ def Update():
                         if not in_bounds[2]: root.move(proy.obj, -proy.pos[1], 0)
                         if not in_bounds[3]: root.move(proy.obj, 0, menu_size[1]-proy.pos[1])
                         ## Flip
-                        if not in_bounds[0] or not in_bounds[1]: proy.dir[0] = -proy.dir[0]
-                        if not in_bounds[2] or not in_bounds[3]: proy.dir[1] = -proy.dir[1]
+                        if not in_bounds[0] or not in_bounds[1]: 
+                            proy.dir[0] = -proy.dir[0]
+                            sounds.play_sound("soundHurt", vol=0.3)
+                        if not in_bounds[2] or not in_bounds[3]: 
+                            proy.dir[1] = -proy.dir[1]
+                            sounds.play_sound("soundHurt", vol=0.3)
 
 
             for proy in proyectile_list:
